@@ -1,0 +1,645 @@
+### Basic Building blocks when designing any system.
+#### Back of the envelope Calculation
+- Examples of a back-of-the-envelope calculation:-
+    - The number of concurrent TCP connections a server can support.
+    - The number of requests per second (RPS) a web, database, or cache server can handle.
+    - The storage requirements of a service.
+- Web Servers
+    - Decoupled from application servers.
+    - Web servers are the first point of contact after load balancers.
+    - Such servers require good computational resources.
+    - Ex. facebook used web server with 32 GB of RAM and 500 GB of storage space. But for its high-end computational needs, it partnered with Intel to build a custom 16-core processor.
+- Application servers
+    - Run the core application software and business logic.
+    - Application servers primarily provide dynamic content, whereas web servers mostly serve static content to the client, which is mostly a web browser.
+    - They can require extensive computational and storage resources.
+- Storage servers
+    - With the explosive growth of Internet users, the amount of data stored by giant services has multiplied.
+    - Youtube uses following datastores:-
+        - Blob storage for its **encoded videos**.
+        - A **temporary processing queue storage** that can hold a few hundred hours of video content uploaded daily to YouTube for processing.
+        - Specialized storage called **Bigtable** for storing a large number of thumbnails of videos.
+        - **Relational database management system** (RDBMS) for users and videos metadata (comments, likes, user channels, and so on.
+- Standard numbers to remember
+    - Important Latencies
+        - L1 cache reference = 0.9 ns
+        - L2 cache reference = 2.8 ns
+        - L3 cache reference = 12.9 ns
+        - Main memory reference = 100 ns
+        - Read 1MB sequentially from memory = 9 microseconds
+        - Read 1MB sequentially from SSD = 200 microseconds
+        - Disk seek = 4 ms
+        - Read 1MB sequentially from disk = 2 ms
+    - Throughput
+        - QPS handled by mysql = 1000
+        - QPS handled by key-value store = 10,000
+        - QPS handled by cache server = 100,000 - 1M
+
+- Request Estimation
+    - Within a server, there are limited resources and depending on the type of client requests, different resources can become a bottleneck.
+    - Let’s understand two types of requests:-
+        - CPU-bound requests :- Limiting factor CPU
+        - Memory-bound requests :- Limiting factor memory
+    - Let's assume machine has 256 GB RAM and 36 cores ( 72 hardware threads ) out of which 16 GB RAM is occupied by OS
+    - Each CPU bound takes 200ms and memory bound takes 50ms
+    - Each worker in memory consumes 300 MB RAM to complete a request.
+    - RPS ( CPU ) = Num_Cpu x 1/cpu_task_time = 72 x 1/200ms = 360
+    - RPS ( memory ) = Ram_size/worker_memory x 1/memory_task_time = 240GB/300MB x 1/50ms = 16000 RPS
+    - Total RPS = RPS ( memory ) + RPS ( CPU ) / 2 = 8180 = 8000 approx
+    - This is only approximation for developing a basic understanding of factors involved in estimating RPS.
+    - Other factors also matters like latency to do disk seek if data is not readily available in RAM or if a request is made to the database server ( network latency )
+    - On a typical day, various types of requests arrive, and a powerful server that only serves static content from the RAM might handle as many as 500k RPS.
+    - On the other end of the spectrum, computational-intensive tasks like image processing may only allow a maximum of 50 RPS.
+#### Domain Name System
+
+#### Load Balancers
+- The job of the load balancer is to fairly divide all clients’ requests among the pool of available servers.
+- Load balancers perform this job to avoid overloading or crashing servers.
+- The load balancing layer is the first point of contact within a data center after the firewall.
+- Placing Load Balancers
+    - Place LBs between end users of the application and web servers/application gateway.
+    - Place LBs between the web servers and application servers that run the business/application logic.
+    - Place LBs between the application servers and database servers.
+- Services offered by load balancers
+    - Health Check
+    - TLS termination
+    - Predictive analysis
+    - Service Discovery :- with the help of service registry ( Service registry is a repository of the (micro)services and the instances available against each service. )
+    - Security :- mitigate DDOS at different layers of OSI model.
+- Are not load balancers SPOF ?
+    - Load balancers are usually deployed in pairs as a means of disaster recovery.
+    - If one load balancer fails, and there’s nothing to failover to, the overall service will go down.
+    - Generally, to maintain high availability, enterprises use clusters of load balancers that use heartbeat communication to check the health of load balancers at all times.
+    - On failure of primary LB, the backup can take over. But, if the entire cluster fails, manual rerouting can also be performed in case of emergencies.
+- Global and Local Load balancing
+    - Global Server Load balancing :- GSLB involves the distribution of traffic load across multiple geographical regions.
+        - GSLB takes forwarding decisions based on the users’ geographic locations, the number of hosting servers in different locations, the health of data centers, and so on.
+    - Local Load balancing :- This refers to load balancing achieved within a data center.
+        - They behave like a reverse proxy and make their best effort to divide incoming requests among the pool of available server.
+- Load balancing in DNS ( GSLB )
+    - DNS can respond with multiple IP addresses for a DNS query.
+    - DNS uses a simple technique of reordering the list of IP addresses in response to each DNS query.
+    - Therefore, different users get a reordered IP address list. It results in users visiting a different server to entertain their requests.
+    - In this way, DNS distributes the load of requests on different data centers.
+    - In particular, DNS uses round-robin to perform load balancing.
+    - round-robin in DNS forwards clients to data centers in a strict circular order but it has several drawbacks:-
+        - Different ISPs have a different number of users. An ISP serving many customers will provide the same cached IP to its clients, resulting in uneven load distribution on end-servers.
+        - Because the round-robin load-balancing algorithm doesn’t consider any end-server crashes, it keeps on distributing the IP address of the crashed servers until the TTL of the cached entries expires.
+    - DNS does GSLB by analyzing the IP location of the client. For each user requesting IP for a domain name, DNS-based GSLB forwards the IP address of the data center geographically closer to the requesting IP location.
+- DNS isn’t the only form of GSLB. Application delivery controllers (ADCs) and cloud-based load balancing are better ways to do GSLB.
+    - Application delivery controllers (ADCs) are part of the application delivery network (ADN).
+    - They can be considered the superset of LBs offering various services, including load balancing.
+    - ADCs have a real-time view of the hosting servers and forward requests based on the health and capacity of the data center.
+- Algorithms of load balancers
+    - Round robin
+    - Weighted round robin
+    - Least Connections
+    - Least response time
+    - IP hash
+    - URL hash
+- Static vs dynamic algorithms
+    - Static algorithms don’t consider the changing state of the servers. Therefore, task assignment is carried out based on existing knowledge about the server’s configuration.
+    - Dynamic algorithms are algorithms that consider the current or recent state of the servers. Dynamic algorithms maintain state by communicating with the server, which adds a communication overhead.
+- Stateful vs stateless
+    - While static and dynamic algorithms are required to consider the health of the hosting servers, a state is maintained to hold session information of different clients with hosting servers.
+    - If the session information isn’t kept at a lower layer (distributed cache or database), load balancers are used to keep the session information.
+    - Stateful Load Balancing :- Involves maintaining a state of the sessions established between clients and hosting servers.
+        - Essentially, the stateful LBs retain a data structure that maps incoming clients to hosting servers. Stateful LBs increase complexity and limit scalability because session information of all the clients is maintained across all the load balancers.
+    - Stateless load balancing :- maintains no state and is, therefore, faster and lightweight.
+        - Stateless LBs use consistent hashing to make forwarding decisions.
+        - However, if infrastructure changes (for example, a new application server joining), stateless LBs may not be as resilient as stateful LBs because consistent hashing alone isn’t enough to route a request to the correct application server.
+        - Therefore, a local state may still be required along with consistent hashing.
+
+- Types of Load balancers
+    - Depending on requirements, load balancing can be performed at Layer 7 ( application layer ) or Layer 4 ( network/transport ) of OSI model.
+    - Layer 4 load balancer :- Layer 4 refers to the load balancing performed on the basis of transport protocols like TCP and UDP.
+        - These types of LBs maintain connection/session with the clients and ensure that the same (TCP/UDP) communication ends up being forwarded to the same back-end server.
+    - Layer 7 load balancer :- Layer 7 load balancers are based on the data of application layer protocols.
+        - It’s possible to make application-aware forwarding decisions based on HTTP headers, URLs, cookies, and other application-specific data—for example, user ID.
+        - Apart from performing TLS termination, these LBs can take responsibilities like rate limiting users, HTTP routing, and header rewriting.
+- Note
+    - Layer 7 load balancers are smart in terms of inspection.
+    - However layer 4 load balancers are faster in terms of processing.
+
+- Load balancers deployment
+    - Tier 0 :- DNS can be considered as the tier-0 load balancer.
+    - Tier 1 :- ECMP ( equal cost multipath ) routers are the tier-1 LBs. Tier-1 LBs will balance the load across different paths to higher tiers of load balancers.
+    - Tier 2 :- include layer 4 load balancers. Tier-2 LBs make sure that for any connection, all incoming packets are forwarded to the same tier-3 LBs.
+    - Tier 3 :- Layer 7 LBs provide services at tier 3. Since these LBs are in direct contact with the back-end servers, they perform health monitoring of servers at HTTP levels. This tier enables scalability by evenly distributing requests among the set of healthy back-end servers and provides high availability by monitoring the health of servers directly. This tier also reduces the burden on end-servers by handling low-level details like TCP-congestion control protocols, the discovery of Path MTU (maximum transmission unit), the difference in application protocol between client and back-end servers, and so on
+
+- Implementation of Load balancers
+    - Hardware based load balancers :- expensive
+    - Software based load balancers :- implemented on commodity hardware
+    - Cloud base load balancers :- Users pay according to their usage or the service-level agreement (SLA) with the cloud provider. Can perform global traffic management between different zones.
+#### Databases
+- Choice of db effects our non-functional requirements.
+    - Caching -> redis
+    - Blob -> S3, CDN. Blob storage is not a database, as db is something which we can query on.
+    - Text search, fuzzy search -> Elastic search. These are not dbs, these are search engines. Difference is whenever you write in a db, it gives you a guarantee that data wouldn't be lost. Search engines do not give any such guarantee.
+    - Time series database -> influxDB. used in systems like monitoring and gathering time based data. Not useful for random updates. Append only db. Also query patterns are bulk within a certain time range.
+    - Analytics/reports -> Hadoop.
+    - Structured data :-
+        - Yes
+            - need ACID -> RDBMS -> MySQL, Oracle, SQL server, Postgres
+        - No
+            - Data types and queries -> Yes -> Document DB -> Mongodb, couchbase ( Products data that amazon has )
+            - Ever increasing data and finite queries -> Yes -> Columnar Db -> Cassandra, Hbase ( uber sending location data of drivers )
+#### Key-value store
+- Prefer availability over consistency for key-value store. In case of network partition, we can either achieve either availability or consistency but not both. If availability is concern, then we might see different data on different nodes. If consistenct is concern, then nodes might not be able to process the request in case of network partition.
+- Distribute key/value pairs evenly on set of nodes while maintaining scale ups and downs based on traffic. Goal is to minimize number of keys movement. Consistent Hashing comes into picture to resolve this issue.
+- Two types of replication:
+    - Master/slave :- Master is responsible for write and then sync changes to slave ( responsible for read requests ). Can not scale as one primary node can become overload and become bottleneck.
+    - Peer to peer :- All nodes are primary and any one can recieve write request, which will later cater this request to other nodes so that all replicas holds the same copy of data.
+- Replication Strategy :
+    - Synchronous :- When all the nodes acknowledge the write request, only then it will be considered success. But it can increase latency in the write request which is not favourable as we need high throuhput system.
+    - Asynchrounous :- Only one or some ( not all ) nodes need to ack the request, it will be considered successful. It speeds up the writes.
+- Resolving Conflicts :- In case of network partition, nodes are available to handle read/write request but write requests will not be catered to other nodes for syncing. So when network connectivity is restored, we need to sync up or resolve the conflicts for same key updates on different nodes with different values.
+    - Ways to do it..
+        - Timestamp :- We update the value of key from most recent write. But in case of distributed system even the time is not consistent, so we can not consider this approach.
+        - Vector clocls :- List of (node, counter) pairs. To track events ordering in distributed system. ( Generalisation of lamport clock )
+- Quoram :- A quorum is the minimum number of votes required for a distributed transaction to proceed with an operation.
+- Merkle Tree :- When we need to speed up the detection of inconsistencies between replicas and reduce the quantity of transferred data.
+#### CDN ( Content Delivery Network )
+- Why we need CDN ?
+    -  If millions of users worldwide use our data-intensive applications, and our service is deployed in a single data center to serve the users’ requests, what possible problems can arise?
+        - High Latency
+        - Data intensive applications - primary data center will need to send out a lot of redundant data when multiple clients ask for it.
+        - Scarcity of Data Center Resources
+- CDN is a group of geographically distributed proxy servers. A proxy server is an intermediate server between a client and the origin server. A CDN primarily targets propagation delay by bringing the data closer to its users.
+- CDN stores two types of data:- **static** and **dynamic**. Basic CDN providers ex. Akamai, Cloudflare, AWS Cloudfront, Google cloud CDN, Rackspace
+- The design of CDN utilizes:
+    - DNS
+    - Load Balancers
+- Content caching strategies:
+    - PUSH CDN :- Content gets sent automatically to the CDN proxy servers from the origin server. Push CDN is appropriate for static content delivery, where the origin server decides which content to deliver to users using the CDN.
+    - PULL CDN :- A CDN pulls the unavailable data from origin servers when requested by a user. Pull CDN is favored for frequently changing content and a high traffic load.
+- Dynamic content caching optimization
+    - Certain dynamic content creation requires the execution of scripts that can be executed at proxy servers instead of running on the origin server based on several parameters like user location, time of day at location.
+    - To reduce the communication between the origin server and proxy servers and storage requirements at proxy servers, it’s useful to employ compression techniques as well ex. Cloudflare uses Railgun.
+    - Another popular approach for dynamic data compression is **ESI ( Edge Side Includes )** markup language. It only fetches the part of web page which has changed rather than complete web page to avoid performance penalty issue.
+- Important factors that affect the proximity of proxy server
+    - Network distance
+    - Requests Load
+- The nearest proxy server doesn’t necessarily mean the one that’s geographically the closest. It could be, but it’s not only the geography that matters. Other factors like network distance, bandwidth, and traffic load already on that route also matter.
+- Netflix has its own CDN known as Open Connect.
+
+#### Sequencer
+- To assign globally unique IDs to each of the events.
+- A unique ID helps us identify the flow of an event in the logs and is useful for debugging.
+- Solutions:
+    - UUID :- This is a 128 bit number. It's simple, scalable and available solution. Each server can generate its own ID and assign the ID to its respective event. No coordination is needed for UUID since it’s independent of the server. UUIDs given to clients over time might not be monotonically increasing. Not unique and numeric in nature.
+    - Using Database :- Consider a central database that provides a current ID and then increments the value by one. We can use the current ID as a unique identifier for our events. Problem is it's a single point of failure. Instead of incrementing by one, let’s rely on a value m, where m equals the number of database servers we have. Each server generates an ID, and the following ID adds m to the previous value. If we scale up/down number of db servers, duplication is possible. So not unique and scalable but numeric in nature.
+    - Range Handler :- We can use ranges in a central server. Suppose we have multiple ranges for one to two billion, such as 1 to 1,000,000; 1,000,001 to 2,000,000; and so on. In such a case, a central microservice can provide a range to a server upon request. It;s unique, scalable, available and numeric. But what if we add a requirement that the ID is time sortable too ?
+- Unique Ids with Causality ( the relationship between cause and effect )
+    - Apart from having unique identifiers for events, We are also interested in finding the sequence of these events.
+    - Some applications need the events to have unique identifiers and carry any relevant causality information. An example of this is giving an identifier to the concurrent writes of a key into a key-value store to implement the last-write-wins strategy.
+    - Two types of physical clocks:
+        - Time-of-day clock :- Effected by NTP, less resolution
+        - Monotonic counters :- more resolution
+    - Physical clocks drift over time due to many reasons:
+        - Temperature differences
+        - Equipment's age
+        - Manufacturing defects
+        - Virtualized clocks
+    - Logical clocks
+        - Lamport clocks - partial ordering
+        - Vector clocks - If number of nodes is higher, then it might require larger storage.
+    - Unix timestamp
+        - ID-generating server that can generate one ID in a single millisecond.
+        - 86400000 IDs in a day
+        - Single POF, can add multiple servers and attach server ID with UNIX timestamp.
+        - For two concurrent events, the same time stamp is returned and the same ID can be assigned to them.
+    - Twitter Snowflake
+        - Sign bit - 1 bit
+        - Timestamp - 41 bits
+        - Worker number - 10 bits
+        - Sequence number - 12 bits
+        - Weak causality
+    - TrueTime API
+        - All constraints are maintained ( like scalable, available, causality )
+#### Distributed Monitoring
+- Modern hardware contains hardware, distributed services, and network resources.
+- It’s challenging to know what’s happening at the hardware or application level when our infrastructure is distributed across multiple locations and includes many servers.
+- Monitoring helps in analyzing such complex infrastructure where something is constantly failing.
+- Monitoring distributed systems entails gathering, interpreting, and displaying data about the interactions between processes that are running at the same time.
+- We can divide our monitoring focus into two broad categories of errors:-
+    - Service-side errors
+    - Client-side errors
+- A good monitoring system needs to clearly define what to measure and in what units (metrics).
+- The two conventional approaches to handling IT infrastructure failures are:-
+    - Reactive : corrective action is taken after the failure occurs.
+    - Proactive : proactive actions are taken before failure occurs.
+- Monitoring server side errors
+    - We’ll use **blob storage** to store our information about metrics.
+    - High Level components:-
+        - **Storage** - time series db, blob store and rules and action db
+        - **Data Collector service** - fetches the relevant data from each service and saves it in the storage
+        - **Querying service** - API that can query on the time-series database and return the relevant information.
+    - Other service might include:
+        - Service discoverer
+        - Dashboard
+        - Alert Manager ( email, slack etc )
+    - Using a hierarchy of systems for scaling is a common design pattern in system design. We can include push based approach on individual monitoring system to push the metrics on global monitoring system.
+    - Heat maps are a powerful tool for visualization and help us learn about the health of thousands of servers in a compact space.
+- Monitoring client-side errors
+    - There are many factors that can cause failures that can result in clients being unable to reach the server.
+        - Failure in DNS name resolution.
+        - Any failure in routing along the path from the client to the service provider. ( like error in BGP )
+        - Any failures with third-party infrastructure, such as middleboxes and content delivery networks (CDNs).
+    - The initial design is based on active probing. We have to place the prober in each different AS ( autonomous system ) but this is not feasible as there are 100000 unique probers.
+    - Instead of using a prober on vantage points, we can embed the probers into the actual application instead.
+        - **Agent** :- This is a prober embedded in the client application that sends the appropriate service reports about any failures.
+        - **Collector** :- This is a report collector independent of the primary service. It’s made independent to avoid the situations where client agents want to report an error to the failed service.
+    - Now we'll have the following concerns:-
+        - Can a user activate and deactivate client-side reports ? Yes
+        - How do client-side agents reach collectors under faulty conditions ? By being in a different domain.
+        - How will we protect user privacy ? By giving user full control to see what is sent in each error report.
+#### Distributed Cache
+- A distributed cache is a caching system where multiple cache servers coordinate to store frequently accessed data.
+- Distributed caches are needed in environments where a single cache server isn’t enough to store all the data.
+- Cache uses the locality of reference principle.
+- Caching at different layers of a system.
+    - Web :- HTTP cache headers, web accelerators, key-value store, CDNs, and so on. Accelerate retrieval of static web content, and manage sessions.
+    - Application :- Local cache and key-value data store. Accelerate application-level computations and data retrieval.
+    - Database :- Database cache, buffers, and key-value data store. Reduce data retrieval latency and I/O load from database.
+- Background
+    - Writing Policies:- Often, cache stores a copy (or part) of data, which is persistently stored in a data store.
+        - Where do we store the data first? Database or cache?
+        - What will be the implication of each strategy for consistency models?
+        - Write through cache:- writes on the cache as well as on the database ( concurrently or one after the other ). Increases latency but ensure strong consistency between db and cache.
+        - Write back cache:- data is first written to the cache and asynchronously written to the database. ( smnall latency )
+        - Write around cache:- involves writing data to the database only, later, when a read is triggered for the data, it’s written to cache after a cache miss.
+    - Eviction Policies:- Caches are small with limited storage capacity. Need to evict less frequently accessed data from the cache.
+        - LRU ( Least recently used )
+        - MRU ( Most recently used )
+        - LFU ( Least Frequently used )
+        - MFU ( Most frequently used )
+        - Data can be classified as:
+            - HOT :- This is highly accessed data.
+            - WARM :- This is less frequently accessed data.
+            - COLD :- This is rarely accessed data.
+    - Cache Invalidation
+        - Apart from eviction of less frequently accessed data, some data residing in the cache may become stale or outdated over time.
+        - Such cache entries are invalid and must be marked for deletion.
+        - How do we identify stale entries?
+            - Maintaining a time-to-live (TTL) value to deal with outdated cache items.
+            - Active expiration :- This method actively checks the TTL of cache entries through a daemon process or thread.
+            - Passive expiration :- This method checks the TTL of a cache entry at the time of access.
+        - Each expired item is removed from the cache upon discovery.
+    - Storage Mechanism
+        - Which data should we store in which cache servers?
+        - What data structure should we use to store the data?
+        - Hash Function
+            - Identify the cache server in a distributed cache to store and retrieve data. ( consistent hashing )
+            - Locate cache entries inside each cache server. ( typical hash function like MD5, SHA-256 )
+        - Linked List
+        - Bloom filters are an interesting choice for quickly finding if a cache entry doesn’t exist in the cache servers.
+        - Sharding
+            - To avoid SPOF and high load on a single cache instance.
+            - Dedicated Cache servers
+                - We separate the application and web servers from the cache servers. Independent scaling of both.
+            - Co-located Cache
+                - Embeds cache and service functionality within the same host.
+    - Cache Client
+        - Hash functions should be used for the selection of cache servers. But cache clients performs these hash calculations.
+        - A cache client is a piece of code residing in hosting servers that do (hash) computations to store and retrieve data in the cache servers.
+        - Each cache client will know about all the cache servers.
+        - All clients can use well-known transport protocols like TCP or UDP to talk to the cache servers.
+- Main high level design components are cache client and cache servers.
+- But how does cache clients will come to know about addition or removal of cache server ?
+    - Maintaining a list of cache servers through config file on each cache client/service. ( manually updated and deployed through some devops tool )
+    - Centralized location of a config file that the cache clients can use to get updated information about cache servers. Solves the deployment problem but have to be manually updated and monitor the health  of each server.
+    - Configuration Service that continuously monitors the health of the cache servers, the cache clients will get notified when a new cache server is added to the cluster. ( Highest operational cost but most robust )
+- Internals of cache server:
+    - Hash Map :- to store or locate different entries inside the RAM of cache servers, map contains pointers to each cache value.
+    - Doubly Linked List :- If we have to evict data from the cache, we require a linked list so that we can order entries according to their frequency of access.
+- Redis doesn’t provide strong consistency due to the use of asynchronous replication.
+- A Redis client looking to send subsequent requests will have to wait for the server to respond to the first request. So, the overall latency will be higher.
+- Redis uses pipelining to speed up the process.Pipelining is the process of combining multiple requests from the client side without waiting for a response from the server.
+- The process of pipelining reduces the latency through RTT and the time to do socket level I/O.
+- Pipelining the commands from the client side has no impact on how the server processes these requests.
+- Redis also abstracts the cluster management tasks from user like replication, data division.
+- Redis runs as a single process using one core.
+
+#### Distributed Messaging Queue
+- A messaging queue is an intermediate component between the interacting entities known as producers and consumers.
+- The producer produces messages and places them in the queue, while the consumer retrieves the messages from the queue and processes them.
+- Advantage of queues:-
+    - Improved Performance
+    - Better Reliability
+    - Granular Scalability
+    - Easy Decoupling
+    - Rate Limiting
+    - Priority Queue
+- Requirements
+    - FR -> Queue creation, Send message, receive message, delete message, queue deletion.
+    - NFR -> Durability, Scalability, Availability, Performance.
+- Single server message queue
+    - Producer and consumer processes are also on the same node.
+    - A producer or consumer can access a single-server queue by acquiring the locking mechanism to avoid data inconsistency.
+    - The queue is considered a critical section where only one entity, either the producer or consumer, can access the data at a time.
+    - Drawbacks of a single server messaging queue:-
+        - High Latency :- Due to contention of lock, when many processes try to access the queue it increases the latency of the service.
+        - Low availability :- Due to the lack of replication of the messaging queue, the producer and consumer process might be unable to access the queue in events of failure.
+        - Lack of durability :- Due to the absence of replication, the data in the queue might be lost in the event of a system failure.
+        - Scalability :- A single-server messaging queue can handle a limited number of messages, producers, and consumers.
+- Distributed Message Queue's Design
+    - Ordering of messages
+        - Best effort ordering
+            - system puts the messages in a specified queue in the same order that they’re received.
+        - Strict ordering
+            - preserves the ordering of messages more rigorously.
+            - messages are placed in a queue in the order that they’re produced.
+        - It’s crucial to have a mechanism to identify the order in which the messages were produced on the client side. Often, a **unique identifier or time-stamp** is used to mark a message when it’s produced.
+            - Monotonically increasing numbers :- assign monotonically increasing numbers to messages on the server side.
+            - Causality-based sorting at the server side :- messages are sorted based on the time stamp that was produced at the client side and are put in a queue accordingly.
+            - Using time stamps based on synchronized clocks :- time stamp (ID) provided to each message through a synchronized clock is unique and in the correct sequence of production of messages. We can tag a unique process identifier with the time stamp to make the overall message identifier unique and tackle the situation when two concurrent sessions ask for a time stamp at the exact same time.
+        - Sorting
+            - Once messages are received at the server side, we need to sort them based on their time stamps.
+        - If an old message comes when we’ve already handed out a newer message, we put it in a special queue, and the client handles that situation.
+    - Managing Concurrency
+        - When multiple messages arrive at the same time.
+            - use the locking mechanism, when a process or thread requests a message, it should acquire a lock for placing or consuming messages from the queue. Not a scalable solution.
+        - When multiple consumers request concurrently for a message.
+        - Another solution is to serialize the requests using the system’s buffer at both ends of the queue so that the incoming messages are placed in an order, and consumer processes also receive messages in their arrival sequence. By serializing requests, we mean that the requests (either for putting data or extracting data), which come to the server would be queued by the OS, and a single application thread will put them in the queue without any locking.
+    - Applications might use multiple queues with dedicated producers and consumers to keep the ordering cost per queue under check, although this comes at the cost of more complicated application logic.
+
+#### Pub Sub
+- an asynchronous service-to-service communication method.
+- All the services subscribed to the pub-sub model receive the message that’s pushed into the system.
+- FR :- Create topic, write a msg, Subscription, Read message, Specify retention time, Delete message
+- NFR :- Scalable, available, durable, Fault tolerance, concurrency
+- Basic Blocks:- DB, Distributed message queue, key-value store.
+- First design
+    - **Topic queue** :- Each topic will be a distributed messaging queue so we can store the messages sent to us from the producer.
+    - **Database** :- relational database that will store the subscription details. Which consumer has subscribed to which topic so we can provide the consumers with their desired messages.
+    - **Message director** :- This service will read the message from the topic queue, fetch the consumers from the database, and send the message to the consumer queue.
+    - **Consumer queue** :- The message from the topic queue will be copied to the consumer’s queue so the consumer can read the message.
+    - **Subscriber** :- When the consumer requests a subscription to a topic, this service will add an entry into the database.
+    - Pros of this design
+        - Simple
+    - Cons of this design
+        - huge number of queues needed is a significant concern
+        - If we have millions of subscribers for thousands of topics, defining and maintaining millions of queues is expensive.
+- Second Design
+    - Broker :- This server will handle the messages. It will store the messages sent from the producer and allow the consumers to read them.
+    - Cluster Manager :- We'll have numerous broker servers to cater to our scalability needs. We need a cluster manager to supervise the broker's health.
+    - Storage :- We'll use a relational database to store consumer details, such as subscription information and retention period.
+    - Consumer Manager :- This is responsible for managing the consumers.
+- Detail of each component
+    - **Broker** :- It will handle write and read requests. A broker will have multiple topics where each topic can have multiple partitions associated with it. We use partitions to store messages in the local storage for persistence. A topic is a persistent sequence of messages stored in the local storage of the broker. The producers will send their messages to the relevant topic. The messages received will be sent to various partitions on basis of the round-robin algorithm.
+        - Strict ordering can be achieved on the basis of partition id.
+    - **Cluster Manager** :- Broker and topics registry, this stores the list of topics for each broker. Also manages replication. One of the brokers is the leader. If it fails, the manager decides who the next leader is.
+    - **Consumer Manager** :- Verify the consumer, retention time management, message recieving options management, Allow multiple reads ( key-value to store offset information against each consumer )
+
+
+#### The Rate Limiter
+- Puts a limit on the number of requests a service fulfills.
+- It throttles requests that cross the predefined limit.
+- It also protects services against abusive behaviors that target the application layer, such as denial-of-service ( DOS ).
+- FR :- limit the number of requests a client can send to an API within a time window, make the limit of requests per window configurable, make sure that the client gets a message (error or notification) whenever the defined threshold is crossed.
+- NFR :- Availability, low latency, scalability
+- Throttling
+    - Hard throttling :- hard limit on the number of API requests.
+    - Soft throttling :- the number of requests can exceed the predefined limit by a certain percentage.
+    - Elastic or dynamic throttling :- the number of requests can cross the predefined limit if the system has excess resources available.
+- Placing a rate limiter
+    - On client side
+    - On server side
+    - Middleware
+- Models for implementing a rate limiter
+    - One rate limiter might not be enough to handle enormous traffic to support millions of users.
+    - **A rate limiter with a centralized database** :- redis or cassandra. It causes an increase in latency and also susceptible to race conditions in highly concurrent requests.
+    - **A rate limiter with a distributed database** :- rate-limiting state is in a distributed database, each node has to track the rate limit. The problem with this approach is that a client could exceed a rate limit—at least momentarily, while the state is being collected from everyone—when sending requests to different nodes. To enforce the limit, we must set up sticky sessions in the load balancer to send each consumer to exactly one node.
+
+- Basic building blocks
+    - Databases :- used to store rules defined by a service provider and metadata of users using the service.
+    - Caches :-  used to cache the rules and users' data for frequent access.
+    - Queues :- essential for holding the incoming requests that are allowed by the rate limiter.
+- Detail design of rate limiter
+    - Rule database :- database, consisting of rules defined by the service owner.
+    - Rules retriever :- background process that periodically checks for any modifications to the rules in the database.
+    - Throttle rules cache :- The cache consists of rules retrieved from the rule database. The cache serves a rate-limiter request faster than persistent storage,
+    - Decision maker :- This component is responsible for making decisions against the rules in the cache.
+    - Client Identifier builder :- generates a unique ID for a request received from a client, could be a remote IP address, login ID, or a combination of several other attributes. This ID is considered as a key to store the user data in the key-value database.
+- Race condition
+    - There is a possibility of a race condition in a situation of high concurrency request patterns.
+    - 'get-then-set' can cause current count wrongly set in case of highly concurrent requests. To avoid this, can use lock but not very performant. 'set-then-get' can avoid locking approach.
+    - sharded counters can be used under the highly concurrent nature of traffic.
+- Rate limiter should not be on the client’s critical path
+    - All the operations should not be done on request critical path.
+    - In first phase can get the value of counter in decision maker online and forward the request, but when have to update counter in cache and db, that can be done offline in second phase.
+    - For millions of requests, this approach increases performance significantly.
+- Rate limiting algorithms
+    - Token bucket algorithm
+        - This algorithm uses the analogy of a bucket with a predefined capacity of tokens.
+        - The bucket is periodically filled with tokens at a constant rate.
+        - Assume that we have a predefined rate limit of R and the total capacity of the bucket is C.
+            - The algorithm adds a new token to the bucket after every 1/R seconds.
+            - The algorithm discards the new incoming tokens when the number of tokens in the bucket is equal to the total capacity C of bucket.
+    - Leaking bucket algorithm
+        - Variant of the token bucket algorithm with slight modifications.
+        - Uses a bucket to contain incoming requests and processes them at a constant outgoing rate.
+        - The algorithm process these requests at a constant rate in a first-in-first-out (FIFO) order.
+        - Parameters :-
+            - Bucket capacity ( C )
+            - Inflow rate ( Rin )
+            - Outflow rate ( Rout )
+    - Fixed window counter algorithm
+        - Divides the time into fixed intervals called windows and assigns a counter to each window.
+        - When a specific window receives a request, the counter is incremented by one. Once the counter reaches its limit, new requests are discarded in that window.
+        - A burst of traffic greater than the allowed requests can occur at the edges of the window.
+        - Parameters :-
+            - Window size W
+            - Rate limit R
+            - Request count N
+    - Sliding window log algorithm
+        - Keeps track of each incoming request.
+        - When a request arrives, its arrival time is stored in a hash map, usually known as the log.
+        - The logs are sorted based on the time stamps of incoming requests.
+        - Doesn;t suffer from the edge conditions.
+        - Parameters :-
+            - Log size L
+            - Arrival Time Tarr
+            - Time range Tr :- The time stamps of the old requests are deleted if they do not fall in this range. 
+    - Sliding window counter algo
+        - Doesn’t limit the requests based on fixed time units.
+        - This algorithm takes into account both the fixed window counter and sliding window log algorithms to make the flow of requests more smooth.
+        - Rate = Rp x ((time_frame - overlap_time) / time_frame) + Rc
+        - Parameters :-
+            - Rate limit R - number of maximum requests allowed per window.
+            - Size of window W - represents the size of a time window that can be a minute, an hour, or any time slice.
+            - Rp - total number of requests that have been received in the previous time window.
+            - Rc - number of requests received in the current window.
+            - Ot - overlapping time of the rolling window with the current window.
+        - Assumes that the number of requests in the previous window is evenly distributed, which may not always be possible.
+#### Blob Store
+
+#### Distributed Search
+- Search system :- system that takes some text input, a search query, from the user and returns the relevant content in a few seconds or less.
+- Main components of search systems
+    - Crawler :- Fetches content and create documents
+    - Indexer :- builds a searchable index, using map reduce which runs on distributed cluster of commodity machines.
+    - Searcher :- responds to search queries by running the search query on the index created by the indexer.
+- Requirements
+    - FR
+        - User should be able to search and get the relevant data.
+    - NFR
+        - Availability
+        - Scalability
+        - Fast search on big data
+- Estimation
+    - Assuming 3 Million DAU.
+    - Num of servers when 3 million users search concurrently
+        - 3 Million / 1000 = 3K servers
+    - Storage
+        - Each youtube video metadata ( title, description, transcript, channel name ) JSON document is 200 KB.
+        - The number of unique terms or keys extracted from a single JSON document is 1,000.
+        - The amount of storage space required to add one term into the index table is 100 Bytes.
+        - Total storage per video = 200KB + (1000 x 100 Bytes) = 300 KB
+        - Assuming 6000 videos per day = 300 KB x 6000 = 1.8 GB / day
+    - BW estimation
+        - Incoming traffic
+            - Search request is 100 Bytes and 150 million req/day
+            - 150 million x 100 Bytes / 86400 = 1.39 Mb/s
+        - Outgoing traffic
+            - Number of suggested video on single search = 80 with 50 Bytes size
+            - 150 million x 4000 Bytes/86400 = 55.56 Mb/s
+
+- Building blocks
+    - Blob store / distributed storage
+- Indexing :- organization and manipulation of data that’s done to facilitate fast and accurate information retrieval.
+    - Simplest way to build a searchable index is to store documents with unique id using only two columns and then search linearly and filter out most appropriate docs to return in result.
+    - Inverted Index :- HashMap-like data structure that employs a document-term matrix.
+        - Instead of storing the complete document as it is, it splits the documents into individual words.
+        - After this, the document-term matrix identifies unique words and discards frequently occurring words like “to,” “they,” “the,” “is,” and so on.
+        - Frequently occurring words like those are called terms.
+        - The document-term matrix maintains a term-level index through this identification of unique words and deletion of unnecessary terms.
+        - For each term, the index computes the following information:
+            - The list of documents in which the term appeared.
+            - The frequency with which the term appears in each document.
+            - The position of the term in each document.
+    - We will keep the index in RAM to support low latency of the search.
+
+- Distributed indexing and searching
+    - Numerous low cost machines to index the documents.
+    - How to partition the input data into these nodes/machines ?
+        - Document partition :- all the documents collected by the web crawler are partitioned into subsets of documents. Each node then performs indexing on a subset of documents that are assigned to it.
+        - Term partition :- The dictionary of all terms is partitioned into subsets, with each subset residing at a single node. For example, a subset of documents is processed and indexed by a node containing the term "search"
+    - In term partitioning, a search query is sent to the nodes that correspond to the query terms. This provides more concurrency because a stream of search queries with different query terms will be served by different nodes. Difficult in practice.
+    - In document partitioning, each query is distributed across all nodes, and the results from these nodes are merged before being shown to the user.
+
+- Cluster manager distributes the documents ( large datasets ) to low cost machines depending on number of nodes, computation power, availability ( periodic heartbeats ) of nodes.
+- It should be noted that both searching and indexing are performed on the same node. We refer to this idea as colocation.
+- Drawbacks:
+    - Colocating the indexing and searching is ineffcient as both are resource intensive tasks. Also, this colocated design doesn’t scale efficiently with varying indexing and search operations over time.
+    - Index recomputation on replica is not efficient as indexing is resource intensive and require several stages or pipeline. Instead we should index the data once and replicate it on replicas.
+- Indexing Explained
+    - indexing is performed with a MapReduce distributed model and parallel processing framework.
+    - The MapReduce framework is implemented with the help of a cluster manager and a set of worker nodes categorized as Mappers and Reducers.
+        - The map phase
+        - The reduction phase
+    -  Input to MapReduce is a number of partitions, or set of documents, whereas its output is an aggregated inverted index.
+    - Let's understand the components:
+        - Cluster manager:- The manager initiates the process by assigning a set of partitions to Mappers. Once the Mappers are done, the cluster manager assigns the output of Mappers to Reducers.
+        - Mappers:- This component extracts and filters terms from the partitions assigned to it by the cluster manager. These machines output inverted indexes in parallel, which serve as input to the Reducers.
+        - Reducers:- The reducer combines mappings for various terms to generate a summarized index.
+
+#### Distributed Logging
+- A log file records details of events occurring in a software application.
+- Logging is crucial to monitor the application’s flow.
+- It can also aid in finding out the root cause of the failure or breach.
+- Concurrent activity by a service running on many nodes might need causality information to stitch together a correct flow of events properly.
+- Today, we are moving to microservice architecture instead of monolithic architecture. In microservice architecture, logs of each microservice are accumulated in the respective machine.
+- If we want to know about a certain event ( order payment ) that was processed by several microservices, it is difficult to go into every node, figure out the flow, and view error messages. But, it becomes handy if we can trace the log for any particular flow from end to end.
+- Restrain the log size:-
+    - The number of logs increases over time. logs have to be structured. We need to decide what to log into the system on the application or logging level.
+    - Use sampling
+    - Use categorization -> Debug, info, warning, error, fatal/critical
+- Points to consider while logging:-
+    - Avoid logging personally identifiable information (PII), such as names, addresses, emails, and so on.
+    - Avoid logging sensitive information like credit card numbers, passwords, and so on.
+    - Avoid excessive information. Logging, being an I/O-heavy operation, has its performance penalties.
+    - The logging mechanism should be secure and not vulnerable because logs contain the application’s flow.
+- A zero-day vulnerability in Log4j, a famous logging framework for Java, has been identified.
+- FR
+    - Writing Logs
+    - Storing Logs
+    - Search Logs
+    - Centralized Logging visualizer
+- NFR
+    - Low Latency
+    - Availability
+    - Scalability
+- Building Blocks
+    - Pub-sub -> system to handle the huge size of logs.
+    - Distributed search -> to query the logs efficiently.
+
+- Additional components
+    - Logs accumulator
+    - Storage -> blob store
+    - Logs Indexer
+    - Visualizer
+- All services generate logs and their log accumulator push the logs into pub-sub system ( Scribe in case of Facebook ) for higher scalability.
+- Most complex services use a front-end server to handle an end user’s request. On reception of a request, the front-end server can get a unique identifier using a sequencer. This unique identifier will be appended to all the fanned-out services. Each log message generated anywhere in the system also emits the unique identifier.
+
+#### Distributed Task Scheduler
+- A task is a piece of computational work that requires resources (CPU time, memory, storage, network bandwidth, and so on) for some specified time.
+- For example, uploading a photo or a video on Facebook or Instagram consists of the following background tasks:-
+    - Encode the photo or video in multiple resolutions.
+    - Validate the photo or video to check for content monetization copyrights, and many more.
+- Async is Facebook’s own distributed task scheduler that schedules all its tasks.
+    - notify the users that the livestream of an event has started.
+    - make friend suggestions to users.
+- The process of deciding and assigning resources to the tasks in a timely manner is called task scheduling.
+- FR
+    - Submit task
+    - Allocate resources
+    - Remove task
+    - Monitor task
+    - Release resources
+    - Show task status
+- NFR
+    - Availability
+    - Scalability
+    - Durability
+    - Fault tolerance
+    - Bounded waiting time :- This is how long a task needs to wait before starting execution.
+
+- Basic building blocks
+    - Rate limiter
+    - Sequencer
+    - Database
+    - Queue :- Most important component of distributed task scheduler.
+    - Monitoring
+- Big components
+    - Clients :- initiate the task execution
+    - Scheduler :- decides which task should get resources first.
+    - Resources :- task is executed on these components
+- When a task comes for scheduling, it should contain the following info..
+    - Resource requirements:- CPU, RAM, DISK, TCP ports. But, it is difficult for the clients to quantify these requirements. To remedy this situation, we have different tiers of resources like basic, regular, and premium.
+    - Dependency:- Dependent or independent
+    - Clients:-  individuals or organizations from small to large businesses who want to execute their tasks.
+    - Rate limiter:- The resources available for a client depend on the cost they pay.
+    - Task submitter:- The task submitter admits the task if it successfully passes through the rate limiter.
+    - Unique ID generator:- It assigns unique IDs to the newly admitted tasks.
+    - Database:- RDB, GDB
+    - Batching and prioritization
+    - Distributed queue
+    - Queue manager
+    - Resource manager :- knows which of the resources are free. It pulls the tasks from the distributed queue and assigns them resources.
+    - Monitoring service :-  checking the health of the resource manager and the resources.
+- Queueing:- We have the following three categories for our tasks:
+    - Tasks that can’t be delayed.
+    - Tasks that can be delayed.
+    - Tasks that need to be executed periodically.
+- Execution cap:- Some tasks take very long to execute and occupy the resource blocking other tasks. The execution cap is an important parameter to consider while scheduling tasks.  If the task execution stops due to the execution cap limit, our system notifies the respective clients of these instances.
+- Prioritization:- There are tasks that need urgent execution. To prioritize the tasks, the task scheduler maintains a delay tolerance parameter for each task and executes the task close to its delay tolerance. Delay tolerance is the maximum amount of time a task execution could be delayed.
+- Resource Capacity Optimization:- There could be a time when resources are close to the overload threshold. This is called peak time.
+- Task Idempotency
+- Schedule and execute untrusted tasks:- Untrusted tasks are the tasks where there is a chance of some malicious instructions in the task script that can affect the execution of the other tasks.
+    - Use appropriate authentication and resource authorization.
+    - Consider code sandboxing using dockers or virtual machines.
+    - Use performance isolation between tasks by monitoring tasks’ resource utilization and capping (or terminating) badly behaving tasks.
+
+#### Sharded Counters
