@@ -1,4 +1,155 @@
 ### Basic Building blocks when designing any system.
+
+#### Software Architecture ?
+- Requirements > Design and analysis > Development > Testing > Deployment > Maintenance ( waterfall model )
+- Detailed design phase
+    - Architectural Design (System Architecure) > Abstract Specification ( System Specification ) > Interface Design > Component Design > Data structure design > Algorithm Design
+- Agile process is opposite of waterfall model.
+    - The Agile methods are iterative and incremental compared to the strict format followed by the waterfall process model.
+    - Focus is on rapid deliverables, usually within 2–3 weeks, known as iteration.
+- Three main characteristics of web applications:-
+    - Cloud Hosting
+    - Cross-platform usability
+    - Traditional and SPA ( single page application ) behaviours supported
+- Types of architectural pattern
+    - Centralized and de-centralized architecture
+    - Layered Architecture
+    - N-tier architecture
+        - Layers are the logical separation, whereas tiers talk about the physical separation.
+    - MVC ( Model-view-controller ): A special N-tier architecture
+        - Model -> business logic and data of application ( responsible for maintaining the state of the application and for performing operations on the data )
+        - View -> responsible for rendering the user interface of the application ( html, css js )
+        - Controller -> responsible for handling user input and interactions. It receives requests from the view and sends them to the model to be processed
+        - Used in web applications
+    - MVVM ( Model-view-viewmodel )
+        - The model represents the data and business logic of the application
+        - The view represents the user interface of the program.
+        - Viewmodel is in charge of presenting data from the model to the view, as well as managing UI logic and events.
+        - Used in javascript library like angular, react , vue
+    - Client server
+        - Two layered and two tiered
+    - Peer to Peer
+        - In decentralized network, the nodes can work as both clients and servers at the same time.
+        - There’s no need for a centralized server.
+    - Broker Pattern
+        - also known as the intermediary pattern, inserts a middleman called a broker between service users (also known as clients) and service providers (servers).
+        - When a client requires a service, it asks a broker over a service interface, and the broker forwards the request to the appropriate server, which handles the request.
+        - The server returns the outcome of its action to the broker that forwards the result (together with any exceptions) to the client that initiated the request.
+    - Pipe and filter
+    - Event driven Architecture
+        - flow of the program is determined by externally produced events or messages
+    - Publish and subscribe
+        - certain clients publish the information and certain clients receive that information
+    - Hexagonal Architecture
+        - also known as ports and adapters architecture
+        - design pattern that separates the core functionality of an application from its external dependencies.
+    - Serverless Architecture
+        - design pattern in which applications are built using cloud-based services that abstract away the underlying infrastructure.
+        - Cloud functions are the core building blocks of a serverless architecture. They are small, self-contained pieces of code that are executed in response to an event or trigger.
+        - we don’t have access to the underlying infrastructure.
+    - Monolithic
+        - A website or application created as a single, self-contained entity is referred to as a monolithic architecture.
+        - The website’s components, including the user interface, business logic, and data storage, are all tightly connected and interdependent.
+    - Microservices
+        - design pattern in which a website or application is divided into smaller, independent components known as microservices that may be created and deployed individually.
+
+#### System Design Essentials
+- System design is the process of defining components and their integration, APIs, and data models to build large-scale systems that meet a specified set of functional and non-functional requirements.
+    - Abstraction is the art of obfuscating details that we don’t need. It allows us to concentrate on the big picture.
+    - Database Abstraction :- Transactions is a database abstraction that hides many problematic outcomes when concurrent users are reading, writing, or mutating the data and gives a simple interface of commit, in case of success, or abort, in case of failure.
+    - Abstractions in distributed systems :- The abstraction of distributed systems has grown in popularity as many big companies like Amazon AWS, Google Cloud, and Microsoft Azure provide distributed services. Every service offers different levels of abstraction. Abstractions in distributed systems help engineers shift to distributed systems quickly to scale their applications.
+- Consistency
+    - In distributed systems, consistency may mean many things. One is that each replica node has the same view of data at a given point in time.
+    - The other is that each read request gets the value of the recent write
+    - Normally, consistency models provide us with abstractions to reason about the correctness of a distributed system doing concurrent data reads, writes, and mutations.
+    - The two ends of the consistency spectrum are
+        - Strongest Consistency
+        - Weakest Consistency
+    - All other consistency models lies in-between
+        - Weakest ( Eventual ) -> Causal -> Sequential -> ( Strict consistency / linearlizability ) Strongest
+    - There is a difference between consistency in ACID properties and consistency in the CAP theorem.
+    - Eventual Consistency
+        - weakest consistency model
+        - The applications that don’t have strict ordering requirements and don’t require reads to return the latest write choose this model.
+        - Eventual consistency ensures that all the replicas converge on a final value after a finite time and when no more writes are coming in.
+        - Ensures High Availability ( Cassandra is a highly available NoSQL database that provides eventual consistency. )
+    - Causal Consistency
+        - Works by categorizing operations into dependent and independent operations
+        - Dependent operations are also called causally-related operations. Causal consistency preserves the order of the causally-related operations.
+        - This model doesn’t ensure ordering for the operations that are not causally related.
+        - The causal consistency model is used in a commenting system.
+    - Sequential Consistency
+        -  It preserves the ordering specified by each client’s program. However, sequential consistency doesn’t ensure that the writes are visible instantaneously or in the same order as they occurred according to some global clock.
+        - Ex:- In social networking applications, we usually don’t care about the order in which some of our friends’ posts appear. However, we still anticipate a single friend’s posts to appear in the correct order in which they were created).
+    - Strict Consistency
+        - This model ensures that a read request from any replicas will get the latest write value.
+        - Linearizability is challenging to achieve in a distributed system. Some of the reasons for such challenges are variable network delays and failures.
+    - Synchronous replication is one of the ingredients for achieving strong consistency. Linearizability affects the system’s availability, which is why it’s not always used.
+    - Applications with strong consistency requirements use techniques like quorum-based replication to increase the system’s availability.
+    - Google’s Spanner database claims to be linearizable for many of its operations.
+- Failure Models
+    - Failures are obvious in the world of distributed systems and can appear in various ways.
+    - They might come and go, or persist for a long period.
+    - Fail stop ( Easy to deal with ) -> Crash -> Omission -> Temporal -> Byzantine ( Difficult to deal with )
+    - Fail Stop
+        - A node in the distributed system halts permanently.
+        - However, the other nodes can still detect that node by communicating with it.
+    - Crash
+        - In this type of failure, a node in the distributed system halts silently, and the other nodes can’t detect that the node has stopped working.
+    - Omission failure
+        - In omission failures, the node fails to send or receive messages.
+        - There are two types of omission failures. If the node fails to respond to the incoming request, it’s said to be a send omission failure.
+        - If the node fails to receive the request and thus can’t acknowledge it, it’s said to be a receive omission failure.
+    - Temporal Failure
+        - The node generates correct results, but is too late to be useful. This failure could be due to bad algorithms, a bad design strategy, or a loss of synchronization between the processor clocks.
+    - Byzantine Failure
+        - Node exhibits random behavior like transmitting arbitrary messages at arbitrary times, producing wrong results, or stopping midway. This mostly happens due to an attack by a malicious entity or a software bug.
+- Non-functional system charactersitics
+    - Availability
+        - Availability is the percentage of time that some service or infrastructure is accessible to clients and is operated upon under normal conditions.
+        - For example, if a service has 100% availability, it means that the said service functions and responds as intended (operates normally) all the time.
+        - Service providers calculate downtime in terms of number of 9s:
+            - Ex:- 99.99 (4 nines, 52.56 mins per year), 99.999 (5 nines, 5.26 mins per year)
+            - The planned downtimes are excluded.
+            - Downtime due to cyberattacks might not be incorporated into the calculation of availability.
+    - Reliability
+        - Reliability, R, is the probability that the service will perform its functions for a specified time. R measures how the service performs under varying operating conditions.
+        - We often use mean time between failures (MTBF) and mean time to repair (MTTR) as metrics to measure R.
+            ```
+            MTBF = (Total elapsed time - Sum of downtime) / total number of failures
+            MTTR = Total maintenance time / total number of repairs
+            ```
+        - We strive for a higher MTBF value and a lower MTTR value.
+        - Reliability and availability are two important metrics to measure compliance of service to agreed-upon service level objectives (SLO).
+    - Scalability
+        - The ability of a system to handle an increasing amount of workload without compromising performance.
+        - The workload can be of different type
+            - Request workload:- This is the number of requests served by the system.
+            - Data/storage workload:- This is the amount of data stored by the system.
+        - Two types:
+            - Vertical ( Scaling up )
+            - Horizontal ( Scaling out )
+    - Maintainability
+        - After building the system one of the main tasks afterward is keeping the system up and running by finding and fixing bugs, adding new functionalities, keeping the system’s platform updated, and ensuring smooth system operations.
+        - We can further divide the concept of maintainability into three underlying aspects:
+            - Operability:- This is the ease with which we can ensure the system’s smooth operational running under normal circumstances and achieve normal conditions under a fault.
+            - Lucidity:- This refers to the simplicity of the code. The simpler the code base, the easier it is to understand and maintain it, and vice versa.
+            - Modifiability:- This is the capability of the system to integrate modified, new, and unforeseen features without any hassle.
+        - Maintainability, M, is the probability that the service will restore its functions within a specified time of fault occurrence.
+        - We use (mean time to repair) MTTR as the metric to measure M
+            ```
+            MTTR = Total maintenance time / total number of repairs
+            ```
+        - Average amount of time required to repair and restore a failed component.
+    - Fault tolerance
+        - Real-world, large-scale applications run hundreds of servers and databases to accommodate billions of users’ requests and store significant data.
+        - Refers to a system’s ability to execute persistently even if one or more of its components fail.
+        - Here, components can be software or hardware. Conceiving a system that is hundred percent fault-tolerant is practically very difficult.
+        - Techniques for fault tolerance
+            - Replication: replicate both the services and data
+            - Checkpointing: Checkpointing is a technique that saves the system’s state in stable storage for later retrieval in case of failures due to errors or service disruptions.
+                - When a distributed system fails, we can get the last computed data from the previous checkpoint and start working from there.
+
 #### Back of the envelope Calculation
 - Examples of a back-of-the-envelope calculation:-
     - The number of concurrent TCP connections a server can support.
@@ -34,7 +185,6 @@
         - QPS handled by mysql = 1000
         - QPS handled by key-value store = 10,000
         - QPS handled by cache server = 100,000 - 1M
-
 - Request Estimation
     - Within a server, there are limited resources and depending on the type of client requests, different resources can become a bottleneck.
     - Let’s understand two types of requests:-
@@ -50,7 +200,6 @@
     - Other factors also matters like latency to do disk seek if data is not readily available in RAM or if a request is made to the database server ( network latency )
     - On a typical day, various types of requests arrive, and a powerful server that only serves static content from the RAM might handle as many as 500k RPS.
     - On the other end of the spectrum, computational-intensive tasks like image processing may only allow a maximum of 50 RPS.
-#### Domain Name System
 
 #### Load Balancers
 - The job of the load balancer is to fairly divide all clients’ requests among the pool of available servers.
@@ -641,5 +790,3 @@
     - Use appropriate authentication and resource authorization.
     - Consider code sandboxing using dockers or virtual machines.
     - Use performance isolation between tasks by monitoring tasks’ resource utilization and capping (or terminating) badly behaving tasks.
-
-#### Sharded Counters
